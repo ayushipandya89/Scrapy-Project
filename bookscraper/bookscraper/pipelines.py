@@ -5,6 +5,7 @@
 
 
 # useful for handling different item types with a single interface
+import os
 from itemadapter import ItemAdapter
 import psycopg2
 
@@ -26,6 +27,7 @@ class BookscraperPipeline:
         lowercase_keys = ['category', 'product_type']
         for lowercase_key in lowercase_keys:
             value = adapter.get(lowercase_key)
+            print(29, '---->>>>>>>>>>>>>>',value)
             adapter[lowercase_key] = value.lower()
 
         #price --> convert to float
@@ -67,51 +69,71 @@ class BookscraperPipeline:
 
         return item
 
-   
 
-# class PostgresDemoPipeline:
+class SaveToPostgresPipeline:
 
-#     def __init__(self):
-#         ## Connection Details
-#         hostname = 'localhost'
-#         username = 'postgres'
-#         password = '******' # your password
-#         database = 'quotes'
+    def __init__(self):
+        ## Connection Details
+        hostname = os.environ.get('hostname')
+        username = os.environ.get('username')
+        password = os.environ.get('password')
+        database = os.environ.get('database')
 
-#         ## Create/Connect to database
-#         self.connection = psycopg2.connect(host=hostname, user=username, password=password, dbname=database)
+        ## Create/Connect to database
+        self.connection = psycopg2.connect(host=hostname, user=username, password=password, dbname=database)
         
-#         ## Create cursor, used to execute commands
-#         self.cur = self.connection.cursor()
+        ## Create cursor, used to execute commands
+        self.cur = self.connection.cursor()
         
-#         ## Create quotes table if none exists
-#         self.cur.execute("""
-#         CREATE TABLE IF NOT EXISTS quotes(
-#             id serial PRIMARY KEY, 
-#             content text,
-#             tags text,
-#             author VARCHAR(255)
-#         )
-#         """)
+        ## Create quotes table if none exists
+        self.cur.execute("""
+        CREATE TABLE IF NOT EXISTS books(
+            id SERIAL PRIMARY KEY,
+            url VARCHAR(255),
+            title text,
+            upc VARCHAR(255),
+            product_type VARCHAR(255),
+            product_excl_tax DECIMAL,
+            product_incl_tax DECIMAL,
+            tax DECIMAL,
+            price DECIMAL,
+            availability INTEGER,
+            num_reviews INTEGER,  
+            stars INTEGER,          
+            category VARCHAR(255),
+            description text,
+            PRIMARY KEY (id)
+        )
+        """)
 
-#     def process_item(self, item, spider):
+    def process_item(self, item, spider):
 
-#         ## Define insert statement
-#         self.cur.execute(""" insert into quotes (content, tags, author) values (%s,%s,%s)""", (
-#             item["text"],
-#             str(item["tags"]),
-#             item["author"]
-#         ))
+        ## Define insert statement  
+        self.cur.execute(""" insert into books (url, title, upc, product_type, product_excl_tax, product_incl_tax, tax, price, availability, num_reviews, stars, category, description) values (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""", (
+            item["url"],
+            item["title"],
+            item["upc"],
+            item["product_type"],
+            item["product_excl_tax"],
+            item["product_incl_tax"],
+            item["tax"],
+            item["price"],
+            item["availability"],
+            item["num_reviews"],
+            item["stars"],
+            item["category"],
+            str(item["description"]),
+        ))
 
-#         ## Execute insert of data into database
-#         self.connection.commit()
-#         return item
+        ## Execute insert of data into database
+        self.connection.commit()
+        return item
+ 
+    def close_spider(self, spider):
 
-#     def close_spider(self, spider):
-
-#         ## Close cursor & connection to database 
-#         self.cur.close()
-#         self.connection.close()
+        ## Close cursor & connection to database 
+        self.cur.close()
+        self.connection.close()
 
 
 
